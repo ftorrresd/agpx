@@ -45,7 +45,26 @@ impl Drop for Proxy {
     }
 }
 
+/// Path where the install script places the pinned ccp binary.
+fn managed_dir() -> Option<std::path::PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(std::path::PathBuf::from_iter([
+        &home,
+        std::ffi::OsStr::new(".local/share/agpx/bin"),
+    ]))
+}
+
+fn managed_binary() -> Option<std::path::PathBuf> {
+    managed_dir().map(|d| d.join(BINARY))
+}
+
 pub fn find_binary() -> Option<std::path::PathBuf> {
+    // Always prefer the private copy the install script put in place.
+    if let Some(p) = managed_binary() {
+        if p.is_file() {
+            return Some(p);
+        }
+    }
     which(BINARY)
 }
 
@@ -58,10 +77,9 @@ pub fn which(bin: &str) -> Option<std::path::PathBuf> {
 
 fn install_hint() -> String {
     format!(
-        "{BINARY} not found on PATH.\n\n\
-         Install it with one of:\n  \
-         brew install raine/claude-code-proxy/claude-code-proxy\n  \
-         curl -fsSL https://raw.githubusercontent.com/raine/claude-code-proxy/main/scripts/install.sh | bash"
+        "{BINARY} not found.\n\n\
+         Re-run the agpx installer to pull in the managed copy:\n  \
+         curl -fsSL https://raw.githubusercontent.com/ftorrresd/agpx/main/scripts/install.sh | sh"
     )
 }
 

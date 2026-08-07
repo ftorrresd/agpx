@@ -92,3 +92,31 @@ fi
 
 bold "✓ $BINARY installed ($BIN_DIR/$BINARY)"
 "$BIN_DIR/$BINARY" --version
+
+# --- claude-code-proxy (pinned, private to agpx) ----------------------------
+
+CCP="claude-code-proxy"
+CCP_REPO="raine/claude-code-proxy"
+CCP_VERSION="v0.1.32"
+CCP_DIR="${HOME}/.local/share/agpx/bin"
+CCP_PATH="${CCP_DIR}/${CCP}"
+
+mkdir -p "$CCP_DIR"
+
+bold "→ Installing $CCP $CCP_VERSION to $CCP_DIR"
+
+case "$ARCH" in
+  x86_64|amd64)  CCP_ARCH="amd64" ;;
+  aarch64|arm64) CCP_ARCH="arm64" ;;
+  *)             abort "unsupported architecture for $CCP: $ARCH" ;;
+esac
+
+CCP_TARBALL="claude-code-proxy-linux-${CCP_ARCH}.tar.gz"
+CCP_DOWNLOAD="https://github.com/$CCP_REPO/releases/download/$CCP_VERSION/$CCP_TARBALL"
+
+curl -fsSL "$CCP_DOWNLOAD" -o "/tmp/$CCP_TARBALL" || abort "failed to download $CCP $CCP_VERSION"
+tar -xzf "/tmp/$CCP_TARBALL" -C "$CCP_DIR" "$CCP" || abort "failed to extract $CCP"
+chmod +x "$CCP_PATH"
+rm -f "/tmp/$CCP_TARBALL"
+
+bold "✓ $CCP $CCP_VERSION installed ($CCP_PATH)"
