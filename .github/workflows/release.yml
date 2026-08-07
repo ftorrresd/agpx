@@ -4,39 +4,127 @@ on:
   push:
     branches: [main]
 
-# Single job per commit — the previous run's release ages out as GitHub
-# automatically points `/releases/latest` at the newest non-prerelease.
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
+      # ── guard: skip CI-authored commits to avoid infinite loop ──────────
+
+      - name: Check if this is a version-bump commit
+        id: guard
+        run: |
+          AUTHOR="$(git log -1 --pretty=%an)"
+          if [ "$AUTHOR" = "github-actions[bot]" ]; then
+            echo "CI bot commit — already released, skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── determine bump level from commit message ────────────────────────
+
+      - name: Determine bump level
+        id: bump
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          MSG="$(git log -1 --pretty=%B)"
+
+          # Conventional Commits + BREAKING CHANGE footer
+          if echo "$MSG" | grep -qP '(BREAKING[ -]CHANGE|!:)' ; then
+            LEVEL="major"
+          elif echo "$MSG" | grep -qP '^feat(\([^)]+\))?:' ; then
+            LEVEL="minor"
+          elif echo "$MSG" | grep -qP '^fix(\([^)]+\))?:' ; then
+            LEVEL="patch"
+          else
+            LEVEL="patch"
+          fi
+
+          CUR="$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')"
+          MAJOR="$(echo "$CUR" | cut -d. -f1)"
+          MINOR="$(echo "$CUR" | cut -d. -f2)"
+          PATCH="$(echo "$CUR" | cut -d. -f3)"
+
+          case "$LEVEL" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+
+          NEXT="${MAJOR}.${MINOR}.${PATCH}"
+          echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
+          echo "from=$CUR"    >> "$GITHUB_OUTPUT"
+          echo "next=$NEXT"   >> "$GITHUB_OUTPUT"
+          echo "→ $CUR → $NEXT  ($LEVEL)"
+
+      # ── bump Cargo.toml ──────────────────────────────────────────────────
+
+      - name: Bump version in Cargo.toml
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${{ steps.bump.outputs.next }}\"/" Cargo.toml
+          grep '^version' Cargo.toml
+
+      # ── install toolchain + musl ─────────────────────────────────────────
+
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        if: steps.guard.outputs.skip != 'true'
         with:
           toolchain: stable
           target: x86_64-unknown-linux-musl
 
       - name: Install musl-gcc
+        if: steps.guard.outputs.skip != 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq musl-tools
 
+      # ── build (version is already bumped, so binary reports new version) ─
+
       - name: Build (musl, static)
+        if: steps.guard.outputs.skip != 'true'
         run: cargo build --release --target x86_64-unknown-linux-musl
 
       - name: Strip
+        if: steps.guard.outputs.skip != 'true'
         run: strip target/x86_64-unknown-linux-musl/release/agpx
 
-      - name: Release
+      # ── commit version bump, tag, push ───────────────────────────────────
+
+      - name: Commit and tag
+        if: steps.guard.outputs.skip != 'true'
         run: |
           set -euo pipefail
-          TAG="build-$(date -u +%Y%m%d-%H%M%S)"
+          TAG="v${{ steps.bump.outputs.next }}"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add Cargo.toml
+          git commit -m "chore: bump to $TAG
+
+          Auto-bump: ${{ steps.bump.outputs.from }} → ${{ steps.bump.outputs.next }}  (${{ steps.bump.outputs.level }})"
+
+          git tag "$TAG"
+          git push origin HEAD:main --tags
+
+      # ── create GitHub Release ────────────────────────────────────────────
+
+      - name: Release
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          TAG="v${{ steps.bump.outputs.next }}"
           gh release create "$TAG" \
             target/x86_64-unknown-linux-musl/release/agpx \
-            --title "build $(date -u +%Y-%m-%d)" \
-            --notes "$(git rev-parse --short HEAD): $(git log -1 --pretty=%s)"
+            --title "v${{ steps.bump.outputs.next }}" \
+            --notes "$(git log -1 --pretty=%B | head -1)
+
+          **Commit:** $(git rev-parse --short HEAD)
+          **Bump:** ${{ steps.bump.outputs.from }} → ${{ steps.bump.outputs.next }} (${{ steps.bump.outputs.level }})"
         env:
           GH_TOKEN: ${{ github.token }}

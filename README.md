@@ -101,6 +101,24 @@ agpx --openai --model gpt-5.6-sol -- --dangerously-skip-permissions
 - **Ctrl+C may leak a ccp process.** The proxy is in a separate process group so it survives Claude Code's exit; agpx kills it on clean shutdown. SIGKILL to agpx will orphan it.
 - **Unofficial client.** Subscription providers may enforce terms against third-party clients.
 
+## Releases
+
+Every push to `main` triggers a CI build that:
+
+1. Reads the commit message and bumps the version using [Conventional Commits](https://www.conventionalcommits.org/):
+   - `fix:` → patch (`0.1.0` → `0.1.1`)
+   - `feat:` → minor (`0.1.0` → `0.2.0`)
+   - `BREAKING CHANGE:` or `!: ` → major (`0.1.0` → `1.0.0`)
+   - anything else → patch
+2. Builds a static musl binary (no glibc dependency).
+3. Commits the version bump, pushes the tag, and creates a GitHub Release.
+
+Install always gets the latest:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ftorrresd/agpx/main/scripts/install.sh | sh
+```
+
 ## License
 
 MIT
