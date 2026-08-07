@@ -1,0 +1,42 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+
+# Single job per commit — the previous run's release ages out as GitHub
+# automatically points `/releases/latest` at the newest non-prerelease.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-unknown-linux-musl
+
+      - name: Install musl-gcc
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq musl-tools
+
+      - name: Build (musl, static)
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Strip
+        run: strip target/x86_64-unknown-linux-musl/release/agpx
+
+      - name: Release
+        run: |
+          set -euo pipefail
+          TAG="build-$(date -u +%Y%m%d-%H%M%S)"
+          gh release create "$TAG" \
+            target/x86_64-unknown-linux-musl/release/agpx \
+            --title "build $(date -u +%Y-%m-%d)" \
+            --notes "$(git rev-parse --short HEAD): $(git log -1 --pretty=%s)"
+        env:
+          GH_TOKEN: ${{ github.token }}
