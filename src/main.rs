@@ -11,35 +11,13 @@ use agpx::provider::{validate_effort, Provider};
 ///
 /// Everything after `--` is forwarded directly to Claude Code:
 ///
-///   agpx --openai --model gpt-5.6-sol -- --dangerously-skip-permissions
+///   agpx openai --model gpt-5.6-sol -- --dangerously-skip-permissions
 #[derive(Parser)]
 #[command(name = "agpx", version, about)]
 struct Cli {
-    /// Provider (anthropic, deepseek, openai, kimi, grok, cursor).
-    /// Equivalent to the --openai / --deepseek / ... shorthand flags.
-    #[arg(long, global = true, conflicts_with_all = [
-        "openai", "deepseek", "anthropic", "kimi", "grok", "cursor"
-    ])]
+    /// Provider to use. One of: anthropic, deepseek, openai, kimi, grok, cursor.
+    /// Defaults to anthropic when omitted.
     provider: Option<String>,
-
-    /// Use OpenAI Codex (ChatGPT Plus/Pro subscription). Same as --provider openai.
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
-    openai: bool,
-    /// Use DeepSeek API. Same as --provider deepseek.
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
-    deepseek: bool,
-    /// Use Anthropic directly. Same as --provider anthropic (the default).
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
-    anthropic: bool,
-    /// Use Kimi subscription. Same as --provider kimi.
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
-    kimi: bool,
-    /// Use Grok subscription. Same as --provider grok.
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
-    grok: bool,
-    /// Use Cursor subscription. Same as --provider cursor.
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
-    cursor: bool,
 
     /// Model to use. When omitted the provider resolves a sensible default or
     /// delegates to the server alias.
@@ -50,7 +28,7 @@ struct Cli {
     #[arg(long, global = true)]
     small_model: Option<String>,
 
-    /// Reasoning effort. Only supported for --openai.
+    /// Reasoning effort. Only supported for the openai provider.
     /// Accepted: none, low, medium, high, xhigh, max.
     #[arg(long, global = true)]
     effort: Option<String>,
@@ -88,12 +66,6 @@ enum Commands {
 // ── entry ──────────────────────────────────────────────────────────────────
 
 fn resolve_provider(cli: &Cli) -> &str {
-    if cli.openai { return "openai"; }
-    if cli.deepseek { return "deepseek"; }
-    if cli.anthropic { return "anthropic"; }
-    if cli.kimi { return "kimi"; }
-    if cli.grok { return "grok"; }
-    if cli.cursor { return "cursor"; }
     cli.provider.as_deref().unwrap_or("anthropic")
 }
 
@@ -243,9 +215,13 @@ fn models(maybe_prov: Option<String>, cli: &Cli) -> Result<()> {
         }
         agpx::provider::Mode::Proxied => {
             let name = provider.ccp_name().unwrap_or(provider.name());
-            let code = agpx::proxy::delegate(&[name, "models"])?;
-            if code != 0 {
-                bail!("models command failed (exit code {code})");
+            let output = agpx::proxy::delegate_output(&["models"])?;
+            for line in output.lines() {
+                // Each line is "provider: model, model, ..." — print only the
+                // section matching the requested provider.
+                if line.starts_with(&format!("{name}:")) || !line.contains(':') {
+                    println!("{line}");
+                }
             }
         }
     }

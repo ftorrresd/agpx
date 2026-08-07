@@ -188,3 +188,20 @@ pub fn delegate(args: &[&str]) -> Result<i32> {
         .with_context(|| format!("failed to run {}", binary.display()))?;
     Ok(status.code().unwrap_or(1))
 }
+
+/// Run the proxy binary and capture its stdout as a String.
+pub fn delegate_output(args: &[&str]) -> Result<String> {
+    let binary = require_binary()?;
+    let output = Command::new(&binary)
+        .args(args)
+        .output()
+        .with_context(|| format!("failed to run {}", binary.display()))?;
+    if !output.status.success() {
+        bail!(
+            "{} exited with code {}",
+            binary.display(),
+            output.status.code().unwrap_or(1)
+        );
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
