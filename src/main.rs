@@ -242,7 +242,7 @@ fn models(maybe_prov: Option<String>, cli: &Cli) -> Result<()> {
             println!("  deepseek-reasoner  — reasoning-heavy tasks");
         }
         agpx::provider::Mode::Proxied => {
-            let code = agpx::proxy::delegate(&["models"])?;
+            let code = agpx::proxy::delegate(&["models", provider_name])?;
             if code != 0 {
                 bail!("models command failed (exit code {code})");
             }
