@@ -28,8 +28,9 @@ struct Cli {
     #[arg(long, global = true)]
     small_model: Option<String>,
 
-    /// Reasoning effort (sets CLAUDE_CODE_EFFORT_LEVEL).
-    /// Accepted: none, low, medium, high, xhigh, max.
+    /// Reasoning effort: none, low, medium, high, xhigh, max.
+    /// Sets CLAUDE_CODE_EFFORT_LEVEL for anthropic/deepseek;
+    /// forwarded to the proxy as CODEX_EFFORT for openai.
     #[arg(long, global = true)]
     effort: Option<String>,
 
