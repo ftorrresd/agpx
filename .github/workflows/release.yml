@@ -113,8 +113,9 @@ jobs:
 
           Auto-bump: ${{ steps.bump.outputs.from }} → ${{ steps.bump.outputs.next }}  (${{ steps.bump.outputs.level }})"
 
-          # Pull latest to avoid rejecting concurrent pushes, then push
-          git pull --rebase origin main
+          # Pull latest to avoid rejecting concurrent pushes, then push.
+          # --autostash handles dirty Cargo.lock from the build step above.
+          git pull --rebase --autostash origin main
           git tag "$TAG"
           git push origin HEAD:main --tags
 
