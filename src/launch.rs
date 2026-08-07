@@ -62,8 +62,9 @@ pub fn run(opts: Options) -> Result<i32> {
     match provider.mode() {
         Mode::Native => {
             // Nothing to intercept: let Claude Code use its own auth.
-            if model.is_some() || opts.small_model.is_some() {
-                apply_models(&mut cmd, &model, &opts.small_model);
+            apply_models(&mut cmd, &model, &opts.small_model);
+            if let Some(ref effort) = opts.effort {
+                cmd.env("CLAUDE_CODE_EFFORT_LEVEL", effort);
             }
         }
         Mode::Direct => {
@@ -74,6 +75,9 @@ pub fn run(opts: Options) -> Result<i32> {
             cmd.env("ANTHROPIC_BASE_URL", base);
             cmd.env("ANTHROPIC_AUTH_TOKEN", key);
             apply_models(&mut cmd, &model, &opts.small_model);
+            if let Some(ref effort) = opts.effort {
+                cmd.env("CLAUDE_CODE_EFFORT_LEVEL", effort);
+            }
             apply_common(&mut cmd);
         }
         Mode::Proxied => {

@@ -87,9 +87,10 @@ impl Provider {
         }
     }
 
-    /// Only Codex exposes a reasoning-effort knob through ccp.
+    /// Codex exposes effort through ccp. Anthropic and DeepSeek accept it via
+    /// CLAUDE_CODE_EFFORT_LEVEL (the native Claude Code env var).
     pub fn supports_effort(self) -> bool {
-        matches!(self, Provider::Openai)
+        matches!(self, Provider::Openai | Provider::Deepseek | Provider::Anthropic)
     }
 
     pub fn from_name(s: &str) -> Result<Self> {

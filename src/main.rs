@@ -28,7 +28,7 @@ struct Cli {
     #[arg(long, global = true)]
     small_model: Option<String>,
 
-    /// Reasoning effort. Only supported for the openai provider.
+    /// Reasoning effort (sets CLAUDE_CODE_EFFORT_LEVEL).
     /// Accepted: none, low, medium, high, xhigh, max.
     #[arg(long, global = true)]
     effort: Option<String>,
@@ -210,8 +210,8 @@ fn models(maybe_prov: Option<String>, cli: &Cli) -> Result<()> {
         }
         agpx::provider::Mode::Direct => {
             println!("DeepSeek models (Anthropic-compatible endpoint):");
-            println!("  deepseek-chat      — general purpose");
-            println!("  deepseek-reasoner  — reasoning-heavy tasks");
+            println!("  deepseek-v4-pro   — 1.6T MoE, strong reasoning");
+            println!("  deepseek-v4-flash  — 284B MoE, fast & cheap");
         }
         agpx::provider::Mode::Proxied => {
             let name = provider.ccp_name().unwrap_or(provider.name());
