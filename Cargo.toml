@@ -1,6 +1,6 @@
 [package]
 name = "agpx"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Launch Claude Code against any provider in one command"
 license = "MIT"
